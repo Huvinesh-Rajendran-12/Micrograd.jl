@@ -1,7 +1,7 @@
 name = "Micrograd"
 uuid = "48698769-4af9-4d08-b5dd-10372624f522"
 authors = ["Huvinesh Rajendran"]
-version = "1.0.0-DEV"
+version = "0.1.0"
 
 [deps]
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
