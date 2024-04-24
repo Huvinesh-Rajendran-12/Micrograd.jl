@@ -73,3 +73,10 @@ function (mlp::MLP)(x::Vector{Float64})
     end
     return x
 end
+
+export MLP
+export Layer
+export Neuron
+export parameters
+export parameters
+export parameters
