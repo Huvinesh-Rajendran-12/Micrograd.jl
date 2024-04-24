@@ -15,3 +15,21 @@ In Micrograd, the fundamental data structure used for numerical computation is V
 x = Value(2.0)
 # output: Value(data=2.0, grad=0.0)
 ```
+```julia
+x.data
+# output: 2.0
+
+x.grad
+# output: 0.0
+```
+
+```julia
+y = Value(3.0)
+z = x + y
+# output: Value(data=5.0, grad=0.0)
+
+t = x * y
+# output: Value(data=6.0, grad=0.0)
+```
+
+
