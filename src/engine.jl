@@ -218,3 +218,5 @@ function backward!(a::Value)
 end
 
 export Value
+export backward!
+export relu
