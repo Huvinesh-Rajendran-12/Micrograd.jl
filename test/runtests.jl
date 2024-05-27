@@ -1,8 +1,8 @@
-using Micrograd
+using Morpheus
 using LinearAlgebra
 using Test
 
-@testset "Micrograd.jl" begin
+@testset "Morpheus.jl" begin
     # Write your tests here.
     # For example:
     x = Value(2.0)
