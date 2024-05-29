@@ -170,24 +170,6 @@ function Base.:-(a::Union{Value, Int, Float64}, b::Value)
     return out
 end
 
-function Base.tanh(a::Value)
-    out = Value(tanh(a.data), 0.0, (a,), "tanh")
-    function _backward()
-        a.grad += (1-out.data^2) * out.grad
-    end
-    out._backward = _backward
-    return out
-end
-
-function relu(a::Value)
-    out = Value(max(0.0, a.data), 0.0, (a,), "relu")
-    function _backward()
-        a.grad += (a.data > 0.0 ? 1.0 : 0) * out.grad
-    end
-    out._backward = _backward
-    return out
-end
-
 function LinearAlgebra.dot(weights::Vector{Value}, x::Union{Vector{Float64}, Vector{Value}})
     result = Value(0.00)  # initialize the result with a zero value of the same type as weights
     for (w, xi) in zip(weights, x)
@@ -198,25 +180,28 @@ end
 
 function backward!(a::Value)
     a.grad = 1.0
-    topo::Vector{Value} = Vector{Value}[]   
-    visited::Set{Value} = Set{Value}()
-    function build_topo(v::Value)
-        if v ∉ visited
-            push!(visited, v)
-            for child in v._children
-                build_topo(child)
-            end
-            push!(topo, v)
-        end
-    end
-    build_topo(a)
-    for node ∈ reverse(topo)
-        if node._backward ≠ nothing
+    topo = Vector{Value}([a])  # Initialize topo with the output node
+    while !isempty(topo)
+        node = pop!(topo)
+        if node._backward !== nothing
             node._backward()
         end
+        for child in node._children
+            pushfirst!(topo, child)  # Add children in reverse order
+        end
+    end
+end
+
+function to_value(data)
+    if isa(data, Number)
+        return Value(data)
+    elseif isa(data, AbstractArray)
+        return [to_value(x) for x ∈ data]
+    else
+        error("Unsupported data type for conversion to Value")
     end
 end
 
 export Value
 export backward!
-export relu
+export to_value
