@@ -1,29 +1,18 @@
-mutable struct MLP
-    size::Vector{Int}
-    layers::Vector{Layer}
-    
-    function MLP(nin::Int , nouts::Vector{Int})
-        size::Vector{Int} = nouts
-        pushfirst!(size, nin)
-        layers::Vector{Layer} = [Layer(size[i], size[i+1]) for i in 1:length(nouts)-1]
-        new(size, layers)
-    end
+mutable struct Model{T<:Number}
+  layers::Vector{Layer{T}}
+  is_training::Bool
+
+  # Constructor
+  function Model(layers::Vector{Layer{T}}; is_training::Bool = true) where T<:Number
+    new{T}(layers, is_training)
+  end
 end
 
-function Base.show(io::IO, mlp::MLP)
-    print(io, "MLP(layers=$(mlp.layers)")
+function (model::Model{T})(x::Matrix{T}) where T
+  for layer ∈ model.layers
+    x = layer(x, is_training=model.is_training)
+  end
+  return x
 end
 
-function parameters(mlp::MLP)
-    return [p for layer in mlp.layers for p in parameters(layer)]
-end
-
-function (mlp::MLP)(x::Vector{Float64})
-    for layer in mlp.layers
-        x = layer(x)
-    end
-    return x
-end
-
-export MLP
-export parameters
+export Model

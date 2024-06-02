@@ -1,63 +1,58 @@
-using LinearAlgebra
-
-mutable struct Value
-    data::Union{Float64, Int}
-    grad::Float64
-    _children::Union{Tuple{Value}, Tuple{Value, Value}, Set{Value}}
+mutable struct Axion{T<:Number}  # Add type parameter T
+    data::T
+    grad::T
+    _children::Union{Tuple{Axion{T}}, Tuple{Axion{T}, Axion{T}}, Set{Axion{T}}}
     _op::String
     _backward::Union{Function, Nothing}
 
-    function Value(data::Union{Float64, Int}, grad::Float64 = 0.0, _children::Union{Tuple{Value}, Tuple{Value, Value}, Set{Value}} = Set{Value}(), _op::String = "", _backward::Union{Function, Nothing} = nothing)
-        new(data, grad, _children, _op, _backward)
+    function Axion{T}(data::Number, grad::Number = zero(T), _children::Union{Tuple{Axion{T}}, Tuple{Axion{T}, Axion{T}}, Set{Axion{T}}} = Set{Axion{T}}(), _op::String = "", _backward::Union{Function, Nothing} = nothing) where {T<:Number}
+        if typeof(data) !== T
+            data = convert(T, data) # Store the converted value
+        end
+        new{T}(data, grad, _children, _op, _backward)
+    end
+
+    function Axion(data::Number; grad::Number = 0.0, _children::Union{Tuple{Axion{Float32}}, Tuple{Axion{Float32}, Axion{Float32}}, Set{Axion{Float32}}} = Set{Axion{Float32}}(), _op::String = "", _backward::Union{Function, Nothing} = nothing)
+        if typeof(data) !== Float32 && typeof(grad) !== Float32
+            data = convert(Float32, data)
+            grad = convert(Float32, grad)
+        end
+        new{Float32}(data, grad, _children, _op, _backward)
     end
 end
 
-function Base.show(io::IO, val::Value)
-    print(io, "Value(data=$(val.data), grad=$(val.grad))")
+function Base.show(io::IO, val::Axion)
+    print(io, "Axion(data=$(val.data), grad=$(val.grad), dtype=$(typeof(val.data)))")
 end
 
 
-function Base.:+(a::Value, b::Union{Value, Int, Float64})
-    if b isa Integer || b isa Float64
-        b = Value(b)
-    end
-    out = Value(a.data + b.data, 0.0, (a , b), "+")
+# Addition Operator
+function Base.:+(a::Union{Axion{T}, Number}, b::Union{Axion{T}, Number}) where T <: Number
+    # Automatic conversion if either operand is a plain number
+    a = a isa Axion{T} ? a : Axion{T}(a) 
+    b = b isa Axion{T} ? b : Axion{T}(b)
+
+    # Now, both a and b are guaranteed to be Axion{T}
+    out = Axion{T}(a.data + b.data)
+    out._children = (a, b)
+    out._op = "+"
+
     function _backward()
-        a.grad += 1.0 * out.grad
-        b.grad += 1.0 * out.grad
+        a.grad += out.grad
+        b.grad += out.grad
     end
     out._backward = _backward
     return out
 end
 
-function Base.:+(a::Union{Value, Int, Float64}, b::Value)
-    if a isa Integer || a isa Float64
-        a = Value(a)
-    end
-    out = Value(a.data + b.data, 0.0, (a , b), "+")
-    function _backward()
-        a.grad += 1.0 * out.grad
-        b.grad += 1.0 * out.grad
-    end
-    out._backward = _backward
-    return out
-end
+# Multiplication Operator
+function Base.:*(a::Union{Axion{T}, Number}, b::Union{Axion{T}, Number}) where T
+    a = a isa Axion{T} ? a : Axion{T}(a) 
+    b = b isa Axion{T} ? b : Axion{T}(b)
+    out = Axion{T}(a.data * b.data)
+    out._children = (a, b)
+    out._op = "*"
 
-function Base.:+(a::Value, b::Value)
-    out = Value(a.data + b.data, 0.0, (a , b), "+")
-    function _backward()
-        a.grad += 1.0 * out.grad
-        b.grad += 1.0 * out.grad
-    end
-    out._backward = _backward
-    return out
-end
-
-function Base.:*(a::Value, b::Union{Value, Int, Float64})
-    if b isa Integer || b isa Float64
-        b = Value(b)
-    end
-    out = Value(a.data * b.data, 0.0, (a, b), "*")
     function _backward()
         a.grad += b.data * out.grad
         b.grad += a.data * out.grad
@@ -66,67 +61,28 @@ function Base.:*(a::Value, b::Union{Value, Int, Float64})
     return out
 end
 
-function Base.:*(a::Union{Value, Int, Float64}, b::Value)
-    if a isa Integer || a isa Float64
-        a = Value(a)
-    end
-    out = Value(a.data * b.data, 0.0, (a, b), "*")
+# Division Operator
+function Base.:/(a::Union{Axion{T}, Number}, b::Union{Axion{T}, Number}) where T
+    a = a isa Axion{T} ? a : Axion{T}(a) 
+    b = b isa Axion{T} ? b : Axion{T}(b)
+    out = Axion{T}(a.data / b.data) 
+    out._children = (a, b)
+    out._op = "/"
+
     function _backward()
-        a.grad += b.data * out.grad
-        b.grad += a.data * out.grad
+        a.grad += out.grad / b.data  
+        b.grad -= out.grad * a.data / (b.data ^ 2) 
     end
     out._backward = _backward
     return out
 end
 
-function Base.:*(a::Value, b::Value)
-    out = Value(a.data * b.data, 0.0, (a, b), "*")
-    function _backward()
-        a.grad += b.data * out.grad
-        b.grad += a.data * out.grad
-    end
-    out._backward = _backward
-    return out
-end
+# Exponential Function
+function Base.exp(a::Axion{T}) where T
+    out = Axion{T}(exp(a.data))
+    out._children = (a,)
+    out._op = "exp"
 
-function Base.:/(a::Value, b::Union{Value, Int, Float64})
-    if b isa Integer || b isa Float64
-        b = Value(b)
-    end
-    out = Value(a.data * (b.data^-1), 0.0, (a, b), "/")
-    function _backward()
-        a.grad += 1 * b.data^-1 * out.grad
-        b.grad += -a.data*b.data^-2 * out.grad
-    end
-    out._backward = _backward
-    return out
-end
-
-function Base.:/(a::Union{Value, Int, Float64}, b::Value)
-    if a isa Integer || a isa Float64
-        a = Value(a)
-    end
-    out = Value(a.data * (b.data^-1), 0.0, (a, b), "/")
-     function _backward()
-        a.grad += 1 * b.data^-1
-        b.grad += -a.data*b.data^-2
-    end
-    out._backward = _backward
-    return out
-end
-
-function Base.:/(a::Value, b::Value)
-    out = Value(a.data * (b.data^-1), 0.0, (a, b), "/")
-     function _backward()
-        a.grad += 1 * b.data^-1
-        b.grad += -a.data*b.data^-2
-    end
-    out._backward = _backward
-    return out
-end
-
-function Base.:exp(a::Value)
-    out = Value(exp(a.data), 0.0, (a, b), "exp")
     function _backward()
         a.grad += out.grad * out.data
     end
@@ -134,53 +90,50 @@ function Base.:exp(a::Value)
     return out
 end
 
-function Base.:^(a::Value, b::Union{Int, Float64})
-    @assert b isa Union{Int, Float64} "Right now other is only supported as an Integer or Float."
-    out = Value(a.data ^ b, 0.0, (a,), "^$b")
+# Power Operator
+function Base.:^(a::Axion{T}, b::Real) where T
+    out = Axion{T}(a.data^b) 
+    out._children = (a,)
+    out._op = "^$b"
+
     function _backward()
-        a.grad += b * a.data^(b - 1) * out.grad
+        a.grad += b * a.data^(b - one(T)) * out.grad  # Type-stable 1
     end
     out._backward = _backward
     return out
 end
 
-function Base.:-(a::Value, b::Union{Value, Int, Float64})
-    if b isa Integer || b isa Float64
-        b = Value(b)
-    end
-    out = Value(a.data - b.data, 0.0, (a, b), "-")
+# Subtraction Operator
+function Base.:-(a::Union{Axion{T}, Number}, b::Union{Axion{T}, Number}) where T
+    a = a isa Axion{T} ? a : Axion{T}(a) 
+    b = b isa Axion{T} ? b : Axion{T}(b)
+    out = Axion{T}(a.data - b.data)
+    out._children = (a, b)
+    out._op = "-"
+
     function _backward()
-        a.grad += 1.0 * out.grad
-        b.grad += -1.0 * out.grad
+        a.grad += out.grad
+        b.grad -= out.grad  
     end
     out._backward = _backward
     return out
 end
 
-function Base.:-(a::Union{Value, Int, Float64}, b::Value)
-    if a isa Integer || a isa Float64
-        a = Value(a)
-    end
-    out = Value(a.data - b.data, 0.0, (a, b), "-")
-    function _backward()
-        a.grad += 1.0 * out.grad
-        b.grad += -1.0 * out.grad
-    end
-    out._backward = _backward
-    return out
-end
 
-function LinearAlgebra.dot(weights::Vector{Value}, x::Union{Vector{Float64}, Vector{Value}})
-    result = Value(0.00)  # initialize the result with a zero value of the same type as weights
+# Dot Product Function
+function dot(weights::Matrix{Axion{T}}, x::Union{Matrix{Axion{}}, Matrix{Number}}) where T <: Number
+    result = Axion{T}(zero(T)) 
+
     for (w, xi) in zip(weights, x)
-        result += w * xi  # assume w * xi is defined for Value and Float64
+        result += w * xi  
     end
+
     return result
 end
 
-function backward!(a::Value)
+function backward!(a::Axion{T}) where T<:Number
     a.grad = 1.0
-    topo = Vector{Value}([a])  # Initialize topo with the output node
+    topo = Vector{Axion{T}}([a])  # Initialize topo with the output node
     while !isempty(topo)
         node = pop!(topo)
         if node._backward !== nothing
@@ -192,16 +145,20 @@ function backward!(a::Value)
     end
 end
 
-function to_value(data)
-    if isa(data, Number)
-        return Value(data)
-    elseif isa(data, AbstractArray)
-        return [to_value(x) for x ∈ data]
-    else
-        error("Unsupported data type for conversion to Value")
-    end
+function to_value(data::Number, dtype::Type{<:Number}=Float32)
+    return Axion{dtype}(data)  
 end
 
-export Value
+function to_value(data::AbstractArray, dtype::Type{<:Number}=Float32)
+    return [to_value(x, dtype) for x in data]
+end
+
+# Conversion Functions (Simplified)
+to_value(x::Matrix{Axion{T}}) where T = x[:]  # Flatten to a vector of Axions
+to_matrix_value(x::Vector{Axion{T}}) where T = reshape(x, (length(x), 1)) # Reshape to a matrix
+
+export Axion
 export backward!
 export to_value
+export dot
+export to_matrix_value

@@ -1,33 +1,46 @@
-mutable struct Layer
+mutable struct Layer{T<:Number}
     neurons::Vector{Neuron}
-    dropout::Float64
+    dropout::Number
     is_training::Bool
     
-    function Layer(input_dim::Int, output_dim::Int, activation::Function = identity)
-        neurons = Vector{Neuron}(undef, output_dim)
+    function Layer{T}(input_dim::Int, output_dim::Int, activation::Function = identity; dropout::Number = 0.0, is_training::Bool = true) where T<:Number
+        neurons = Vector{Neuron{T}}(undef, output_dim)
         for i in 1:output_dim
-            neurons[i] = Neuron(input_dim, activation)
+            neurons[i] = Neuron{T}(input_dim, activation)
         end
-        new(neurons)
+        new(neurons, dropout, is_training)
     end
 end
 
 
-function parameters(layer::Layer)::Vector{Value}
+function parameters(layer::Layer)::Vector{Axion}
     return [p for neuron ∈ layer.neurons for p ∈  parameters(neuron)]
 end
 
 function Base.show(io::IO, layer::Layer)
-    print(io, "Layer(neurons=$(layer.neurons)")
+    print(io, "size=$(length(layer.neurons))")
 end
 
-function (layer::Layer)(x::Union{Vector{Float64}, Vector{Value}})::Vector{Value}
+# Function for Matrix Input
+function (layer::Layer)(x::AbstractMatrix{<:Number})::AbstractVector{Axion}
+    result = [n(x) for n in layer.neurons]
+
+    if layer.is_training && layer.dropout > 0.0
+        mask = rand(Bernoulli(1 - layer.dropout), size(x, 2), length(layer.neurons))  # Create a mask for each column of x
+        result = [mask[:, i] .* n(x) ./ (1 - layer.dropout) for (i, n) in enumerate(layer.neurons)] 
+    end
+    return result
+end
+
+# Function for Axion Vector Input
+function (layer::Layer)(x::AbstractVector{<:Axion})::AbstractVector{Axion}
+    result = [n(x) for n in layer.neurons]
+
     if layer.is_training && layer.dropout > 0.0
         mask = rand(Bernoulli(1 - layer.dropout), length(layer.neurons))
-        return [mask[i] ? n(x) / (1 - layer.dropout) : Value(0.0) for (i, n) ∈ enumerate(layer.neurons)]
-    else
-        return [n(x) for n in layer.neurons]
+        result = [mask[i] ? n(x) / (1 - layer.dropout) : Axion(zero(eltype(x[1].data))) for (i, n) in enumerate(layer.neurons)]
     end
+    return result
 end
 
 function zero_grad!(layer::Layer)
@@ -37,3 +50,5 @@ function zero_grad!(layer::Layer)
         end
     end
 end
+
+export Layer
