@@ -55,14 +55,3 @@ t = x * y
 ```
 
 Morpheus.jl provides various operations for working with Axions, such as addition, multiplication, and more. You can use these operations to build and train machine learning models.
-
-For more detailed information and examples, please refer to the [Morpheus.jl documentation](https://github.com/Huvinesh-Rajendran-12/Morpheus.jl)[1][2].
-
-Citations:
-[1] https://github.com/Huvinesh-Rajendran-12/Morpheus.jl/actions/workflows/CI.yml/badge.svg?branch=main
-[2] https://github.com/Huvinesh-Rajendran-12/Micrograd.jl/actions/workflows/CI.yml?query=branch%3Amain
-[3] https://docs.nvidia.com/morpheus/_modules/morpheus.html
-[4] https://docs.morpheusdata.com/en/latest/library/library.html
-[5] https://docs.morpheusdata.com/en/6.2.0/library/library.html
-[6] https://wwwapps.grassvalley.com/docs/Manuals/playout/morpheus/Morpheus_Engineers_Manual_v4.6_Rev2.pdf
-[7] https://www.soniccouture.com/files/pdf/SC-Morpheus-User-Guide.pdf
